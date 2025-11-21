@@ -1,0 +1,83 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up JDK 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # 3. Cache Gradle dependencies
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      # 4. Cache Android SDK (huge speed boost)
+      - name: Cache Android SDK
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.android
+          key: ${{ runner.os }}-android-sdk
+          restore-keys: |
+            ${{ runner.os }}-android-sdk
+
+      # 5. Install Android SDK components
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          api-level: 34
+          build-tools: 34.0.0
+
+      # 6. Cache Chaquopy Python packages
+      - name: Cache Chaquopy Python packages
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.chaquopy
+          key: ${{ runner.os }}-chaquopy-${{ hashFiles('app/src/main/python/**/*.py') }}
+          restore-keys: |
+            ${{ runner.os }}-chaquopy-
+
+      # 7. Decode keystore
+      - name: Decode keystore
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > release.jks
+
+      # 8. Make Gradle executable
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # 9. Build release APK (signed)
+      - name: Build release APK
+        run: ./gradlew assembleRelease --stacktrace
+
+      # 10. Upload signed APK as GitHub Release
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ github.run_number }}
+          name: Telegram Backup APK v${{ github.run_number }}
+          files: app/build/outputs/apk/release/app-release.apk
