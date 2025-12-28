@@ -1,9 +1,8 @@
 plugins {
     id 'com.android.application'
+    id 'com.chaquo.python'
     // id 'org.jetbrains.kotlin.android'
 }
-
-apply plugin: 'com.chaquo.python'
 
 android {
     namespace 'com.example.telegrambackup'
